@@ -15,7 +15,6 @@ const bit<5>  IPV4_OPTION_MRI = 31;
 typedef bit<9>  egressSpec_t;
 typedef bit<48> macAddr_t;
 typedef bit<32> ip4Addr_t;
-//typedef bit<32> switchID_t;
 typedef bit<32> qdepth_t;
 typedef bit<16> switchID_t;
 typedef bit<48> time_t;
@@ -55,8 +54,8 @@ header mri_t {
 header switch_t {
     switchID_t  swid;
     qdepth_t    qdepth;
-    //qdepth_t    qdepth2;
-    time_t      timestamp;
+    //time_t      ingress_timestamp;
+    time_t      egress_timestamp;
 }
 
 struct ingress_metadata_t {
@@ -199,7 +198,8 @@ control MyEgress(inout headers hdr,
         hdr.mri.count = hdr.mri.count + 1;
         hdr.swtraces.push_front(1);
 
-        time_t timestamp = standard_metadata.egress_global_timestamp;
+        time_t egress_timestamp = standard_metadata.egress_global_timestamp;
+        //time_t ingress_timestamp = standard_metadata.ingress_global_timestamp;
         // According to the P4_16 spec, pushed elements are invalid, so we need
         // to call setValid(). Older bmv2 versions would mark the new header(s)
         // valid automatically (P4_14 behavior), but starting with version 1.11,
@@ -207,8 +207,8 @@ control MyEgress(inout headers hdr,
         hdr.swtraces[0].setValid();
         hdr.swtraces[0].swid = swid; // 16 bit
         hdr.swtraces[0].qdepth = (qdepth_t)standard_metadata.deq_qdepth; // 32 bit
-        //hdr.swtraces[0].qdepth2 = (qdepth_t)standard_metadata.deq_qdepth;
-        hdr.swtraces[0].timestamp = (time_t)timestamp; // 48 bit
+        hdr.swtraces[0].egress_timestamp = (time_t)egress_timestamp; // 48 bit
+        //hdr.swtraces[0].ingress_timestamp = (time_t)ingress_timestamp;// 48 bit
 
         hdr.ipv4.ihl = hdr.ipv4.ihl + 3; //(16+32+48)/32
         hdr.ipv4_option.optionLength = hdr.ipv4_option.optionLength + 12; //(16+32+48)/8

@@ -40,7 +40,8 @@ def get_if():
 class SwitchTrace(Packet):
     fields_desc = [ ShortField("swid", 0),
                   IntField("qdepth", 0),
-                  Bit48Field("timestamp", 0)]
+#                  Bit48Field("ingress_timestamp", 0),
+                  Bit48Field("egress_timestamp", 0)]
 
     def extract_padding(self, p):
                 return "", p
@@ -67,11 +68,6 @@ def main():
 
     addr = socket.gethostbyname(sys.argv[1])
     iface = get_if()
-
-#    pkt = Ether(src=get_if_hwaddr(iface), dst="ff:ff:ff:ff:ff:ff") / IP(
-#        dst=addr, options = IPOption_MRI(count=0,
-#            swtraces=[])) / UDP(
-#            dport=4321, sport=1234) / sys.argv[2]
 
     pkt = Ether(src=get_if_hwaddr(iface), dst="ff:ff:ff:ff:ff:ff") / IP(
         dst=addr, options= IPOption_MRI(count=0, swtraces=[])) / UDP(dport=4321, sport=1234) / sys.argv[2]
