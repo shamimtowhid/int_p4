@@ -9,10 +9,21 @@ import struct
 from scapy.all import sendp, send, hexdump, get_if_list, get_if_hwaddr
 from scapy.all import Packet, IPOption
 from scapy.all import Ether, IP, UDP
-from scapy.all import IntField, FieldListField, FieldLenField, ShortField, PacketListField
+from scapy.all import IntField, FieldListField, FieldLenField, ShortField, PacketListField, LongField, Field
 from scapy.layers.inet import _IPOption_HDR
 
 from time import sleep
+
+class Bit48Field(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "6s")
+
+    def i2m(self, pkt, x):
+        return x.to_bytes(6, byteorder='big')
+
+    def m2i(self, pkt, x):
+        return int.from_bytes(x, byteorder='big')
+
 
 def get_if():
     ifs=get_if_list()
@@ -27,8 +38,10 @@ def get_if():
     return iface
 
 class SwitchTrace(Packet):
-    fields_desc = [ IntField("swid", 0),
-                  IntField("qdepth", 0)]
+    fields_desc = [ ShortField("swid", 0),
+                  IntField("qdepth", 0),
+                  Bit48Field("timestamp", 0)]
+
     def extract_padding(self, p):
                 return "", p
 
@@ -55,16 +68,16 @@ def main():
     addr = socket.gethostbyname(sys.argv[1])
     iface = get_if()
 
-    pkt = Ether(src=get_if_hwaddr(iface), dst="ff:ff:ff:ff:ff:ff") / IP(
-        dst=addr, options = IPOption_MRI(count=0,
-            swtraces=[])) / UDP(
-            dport=4321, sport=1234) / sys.argv[2]
+#    pkt = Ether(src=get_if_hwaddr(iface), dst="ff:ff:ff:ff:ff:ff") / IP(
+#        dst=addr, options = IPOption_MRI(count=0,
+#            swtraces=[])) / UDP(
+#            dport=4321, sport=1234) / sys.argv[2]
 
- #   pkt = Ether(src=get_if_hwaddr(iface), dst="ff:ff:ff:ff:ff:ff") / IP(
- #       dst=addr, options = IPOption_MRI(count=2,
- #           swtraces=[SwitchTrace(swid=0,qdepth=0), SwitchTrace(swid=1,qdepth=0)])) / UDP(
- #           dport=4321, sport=1234) / sys.argv[2]
+    pkt = Ether(src=get_if_hwaddr(iface), dst="ff:ff:ff:ff:ff:ff") / IP(
+        dst=addr, options= IPOption_MRI(count=0, swtraces=[])) / UDP(dport=4321, sport=1234) / sys.argv[2]
+
     pkt.show2()
+
     #hexdump(pkt)
     try:
       for i in range(int(sys.argv[3])):
