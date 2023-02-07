@@ -1,6 +1,7 @@
 /* -*- P4_16 -*- */
 #include <core.p4>
 #include <v1model.p4>
+//#include "time.h"
 
 const bit<8>  UDP_PROTOCOL = 0x11;
 const bit<16> TYPE_IPV4 = 0x800;
@@ -55,7 +56,8 @@ header switch_t {
     switchID_t  swid;
     qdepth_t    qdepth;
     //time_t      ingress_timestamp;
-    time_t      egress_timestamp;
+    //time_t      egress_timestamp;
+    time_t      duration;
 }
 
 struct ingress_metadata_t {
@@ -199,7 +201,7 @@ control MyEgress(inout headers hdr,
         hdr.swtraces.push_front(1);
 
         time_t egress_timestamp = standard_metadata.egress_global_timestamp;
-        //time_t ingress_timestamp = standard_metadata.ingress_global_timestamp;
+        time_t ingress_timestamp = standard_metadata.ingress_global_timestamp;
         // According to the P4_16 spec, pushed elements are invalid, so we need
         // to call setValid(). Older bmv2 versions would mark the new header(s)
         // valid automatically (P4_14 behavior), but starting with version 1.11,
@@ -207,7 +209,7 @@ control MyEgress(inout headers hdr,
         hdr.swtraces[0].setValid();
         hdr.swtraces[0].swid = swid; // 16 bit
         hdr.swtraces[0].qdepth = (qdepth_t)standard_metadata.deq_qdepth; // 32 bit
-        hdr.swtraces[0].egress_timestamp = (time_t)egress_timestamp; // 48 bit
+        hdr.swtraces[0].duration = (time_t)(egress_timestamp-ingress_timestamp); // 48 bit
         //hdr.swtraces[0].ingress_timestamp = (time_t)ingress_timestamp;// 48 bit
 
         hdr.ipv4.ihl = hdr.ipv4.ihl + 3; //(16+32+48)/32

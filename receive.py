@@ -35,7 +35,7 @@ class SwitchTrace(Packet):
     fields_desc = [ ShortField("swid", 0),
                     IntField("qdepth", 0),
 #                    Bit48Field("ingress_timestamp", 0),
-                    Bit48Field("egress_timestamp", 0)]
+                    Bit48Field("duration", 0)]
 
     def extract_padding(self, p):
                 return "", p
