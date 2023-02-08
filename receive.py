@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 import sys
 import struct
+import json
+import signal
+import datetime
+from datetime import timezone
 
 from scapy.all import sniff, sendp, hexdump, get_if_list, get_if_hwaddr
 from scapy.all import Packet, IPOption
 from scapy.all import PacketListField, ShortField, IntField, LongField, BitField, FieldListField, FieldLenField, Field
 from scapy.all import IP, UDP, Raw
 from scapy.layers.inet import _IPOption_HDR
+
 
 class Bit48Field(Field):
     def __init__(self, name, default):
@@ -34,7 +39,6 @@ def get_if():
 class SwitchTrace(Packet):
     fields_desc = [ ShortField("swid", 0),
                     IntField("qdepth", 0),
-#                    Bit48Field("ingress_timestamp", 0),
                     Bit48Field("duration", 0)]
 
     def extract_padding(self, p):
@@ -53,19 +57,73 @@ class IPOption_MRI(IPOption):
                                    SwitchTrace,
                                    count_from=lambda pkt:(pkt.count*1)) ]
 
+
+def get_timestamp(): 
+    dt = datetime.datetime.now(timezone.utc)
+  
+    utc_time = dt.replace(tzinfo=timezone.utc)
+    return str(utc_time.timestamp())
+
+
 def handle_pkt(pkt):
+    global DATA
     print("got a packet")
-    pkt.show2()
-#    hexdump(pkt)
+    receive_time = get_timestamp() # UTC_timestamp
+    src_ip = pkt[IP].src
+    dst_ip = pkt[IP].dst
+    key = src_ip+"_"+dst_ip+"_"+receive_time
+    size = len(pkt) # in bytes
+    send_time = pkt[Raw].load.decode('utf-8')
+    swtraces = []
+    for i in range(len(pkt[IP].options[0].swtraces), 0, -1):
+        tmp = {}
+        tmp["duration"] = pkt[IP].options[0].swtraces[i-1].duration
+        tmp["sw_id"] = pkt[IP].options[0].swtraces[i-1].swid
+        tmp["qdepth"] = pkt[IP].options[0].swtraces[i-1].qdepth
+
+        swtraces.append(tmp)
+
+    data = { key: {
+                    "pkt_size_byte" : size, 
+                    "send_time" : send_time, 
+                    "swtraces" : swtraces
+                   }
+            }
+
+    print(data)
+    DATA.append(data)
     sys.stdout.flush()
 
+def create_handler(filename):
+    def handler(signum, frame):
+        save_data(filename)
+        exit(0)
+    return handler
+
+def save_data(filename):
+    global DATA
+    print("Saving Data: ", len(DATA))
+    with open(filename,"w+") as f:
+        json.dump(DATA, f)
+
+# global variable
+DATA = []
 
 def main():
+    if len(sys.argv)<2:
+        print('pass the hostname to save the data in json format')
+        exit(1)
+
+    filename = "./json_data/"+sys.argv[1]+".json"
+
     iface = 'eth0'
     print("sniffing on %s" % iface)
     sys.stdout.flush()
+#   signal handler to detect the press of Ctrl+c, when detected the DATA variable is written in json format
+    signal.signal(signal.SIGINT, create_handler(filename))
+
     sniff(filter="udp and port 4321", iface = iface,
-          prn = lambda x: handle_pkt(x))
+        prn = lambda x: handle_pkt(x))
 
 if __name__ == '__main__':
     main()

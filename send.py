@@ -5,6 +5,8 @@ import sys
 import socket
 import random
 import struct
+import datetime
+from datetime import timezone
 
 from scapy.all import sendp, send, hexdump, get_if_list, get_if_hwaddr
 from scapy.all import Packet, IPOption
@@ -41,7 +43,7 @@ class SwitchTrace(Packet):
     fields_desc = [ ShortField("swid", 0),
                   IntField("qdepth", 0),
 #                  Bit48Field("ingress_timestamp", 0),
-                  Bit48Field("egress_timestamp", 0)]
+                  Bit48Field("duration", 0)]
 
     def extract_padding(self, p):
                 return "", p
@@ -69,16 +71,23 @@ def main():
     addr = socket.gethostbyname(sys.argv[1])
     iface = get_if()
 
-    pkt = Ether(src=get_if_hwaddr(iface), dst="ff:ff:ff:ff:ff:ff") / IP(
-        dst=addr, options= IPOption_MRI(count=0, swtraces=[])) / UDP(dport=4321, sport=1234) / sys.argv[2]
-
-    pkt.show2()
-
     #hexdump(pkt)
     try:
-      for i in range(int(sys.argv[3])):
-        sendp(pkt, iface=iface)
-        sleep(1)
+        for i in range(int(sys.argv[3])):
+            if sys.argv[2] == "timestamp":
+                dt = datetime.datetime.now(timezone.utc)
+  
+                utc_time = dt.replace(tzinfo=timezone.utc)
+                payload = str(utc_time.timestamp())
+            else:
+                payload = "P4 is cool"
+
+            pkt = Ether(src=get_if_hwaddr(iface), dst="ff:ff:ff:ff:ff:ff") / IP(
+                dst=addr, options= IPOption_MRI(count=0, swtraces=[])) / UDP(dport=4321, sport=1234) / payload
+
+            pkt.show2()
+            sendp(pkt, iface=iface)
+            sleep(1)
     except KeyboardInterrupt:
         raise
 
