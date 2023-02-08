@@ -7,6 +7,7 @@ import random
 import struct
 import datetime
 from datetime import timezone
+from essential_generators import DocumentGenerator
 
 from scapy.all import sendp, send, hexdump, get_if_list, get_if_hwaddr
 from scapy.all import Packet, IPOption
@@ -72,13 +73,14 @@ def main():
     iface = get_if()
 
     #hexdump(pkt)
+    sentence_generator = DocumentGenerator()
     try:
         for i in range(int(sys.argv[3])):
             if sys.argv[2] == "timestamp":
                 dt = datetime.datetime.now(timezone.utc)
   
                 utc_time = dt.replace(tzinfo=timezone.utc)
-                payload = str(utc_time.timestamp())
+                payload = str(utc_time.timestamp()) + " " + sentence_generator.sentence()
             else:
                 payload = "P4 is cool"
 

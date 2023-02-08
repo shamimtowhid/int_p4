@@ -73,7 +73,7 @@ def handle_pkt(pkt):
     dst_ip = pkt[IP].dst
     key = src_ip+"_"+dst_ip+"_"+receive_time
     size = len(pkt) # in bytes
-    send_time = pkt[Raw].load.decode('utf-8')
+    send_time = pkt[Raw].load.decode('utf-8').split(" ")[0] # getting the send time from "timestamp random_interger"
     swtraces = []
     for i in range(len(pkt[IP].options[0].swtraces), 0, -1):
         tmp = {}
