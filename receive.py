@@ -3,6 +3,7 @@ import sys
 import struct
 import json
 import signal
+import socket
 import datetime
 from datetime import timezone
 
@@ -57,6 +58,12 @@ class IPOption_MRI(IPOption):
                                    SwitchTrace,
                                    count_from=lambda pkt:(pkt.count*1)) ]
 
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip_address = s.getsockname()[0]
+    s.close()
+    return ip_address
 
 def get_timestamp(): 
     dt = datetime.datetime.now(timezone.utc)
@@ -71,28 +78,30 @@ def handle_pkt(pkt):
     receive_time = get_timestamp() # UTC_timestamp
     src_ip = pkt[IP].src
     dst_ip = pkt[IP].dst
-    key = src_ip+"_"+dst_ip+"_"+receive_time
-    size = len(pkt) # in bytes
-    send_time = pkt[Raw].load.decode('utf-8').split(" ")[0] # getting the send time from "timestamp random_interger"
-    swtraces = []
-    for i in range(len(pkt[IP].options[0].swtraces), 0, -1):
-        tmp = {}
-        tmp["duration"] = pkt[IP].options[0].swtraces[i-1].duration
-        tmp["sw_id"] = pkt[IP].options[0].swtraces[i-1].swid
-        tmp["qdepth"] = pkt[IP].options[0].swtraces[i-1].qdepth
+    host_ip = get_ip_address()
+    if host_ip == dst_ip:
+        key = src_ip+"_"+dst_ip+"_"+receive_time
+        size = len(pkt) # in bytes
+        send_time = pkt[Raw].load.decode('utf-8').split(" ")[0] # getting the send time from "timestamp random_interger"
+        swtraces = []
+        for i in range(len(pkt[IP].options[0].swtraces), 0, -1):
+            tmp = {}
+            tmp["duration"] = pkt[IP].options[0].swtraces[i-1].duration
+            tmp["sw_id"] = pkt[IP].options[0].swtraces[i-1].swid
+            tmp["qdepth"] = pkt[IP].options[0].swtraces[i-1].qdepth
 
-        swtraces.append(tmp)
+            swtraces.append(tmp)
 
-    data = { key: {
-                    "pkt_size_byte" : size, 
-                    "send_time" : send_time, 
-                    "swtraces" : swtraces
-                   }
-            }
+        data = { key: {
+                        "pkt_size_byte" : size, 
+                        "send_time" : send_time, 
+                        "swtraces" : swtraces
+                    }
+                }
 
-    print(data)
-    DATA.append(data)
-    sys.stdout.flush()
+        print(data)
+        DATA.append(data)
+        sys.stdout.flush()
 
 def create_handler(filename):
     def handler(signum, frame):
